@@ -1,0 +1,270 @@
+package powerset
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/amoffat/linkedlist"
+)
+
+func TestVarSize(t *testing.T) {
+	out, _ := VariableSize(3)
+	correct := [][]int{
+		{},
+		{2},
+		{1},
+		{2, 1},
+		{0},
+		{2, 0},
+		{1, 0},
+		{2, 1, 0},
+	}
+
+	allValues := [][]int{}
+	for indices := range out {
+		allValues = append(allValues, indices)
+	}
+	if !reflect.DeepEqual(correct, allValues) {
+		t.Fatalf("%v doesn't match expected %v", allValues, correct)
+	}
+}
+
+func TestFixedSize(t *testing.T) {
+	out, _ := FixedSize(3)
+	correct := [][]bool{
+		{false, false, false},
+		{false, false, true},
+		{false, true, false},
+		{false, true, true},
+		{true, false, false},
+		{true, false, true},
+		{true, true, false},
+		{true, true, true},
+	}
+
+	allValues := [][]bool{}
+	for indices := range out {
+		allValues = append(allValues, indices)
+	}
+	if !reflect.DeepEqual(correct, allValues) {
+		t.Fatalf("\n%v\n\n!=\n\n%v", allValues, correct)
+	}
+}
+
+func TestStopFixedSize(t *testing.T) {
+	out, stop := FixedSize(3)
+
+	allValues := [][]bool{}
+	i := 0
+	for indices := range out {
+		if i == 3 {
+			stop()
+			break
+		}
+		allValues = append(allValues, indices)
+		i++
+	}
+
+	correct := [][]bool{
+		{false, false, false},
+		{false, false, true},
+		{false, true, false},
+	}
+	if !reflect.DeepEqual(correct, allValues) {
+		t.Fatalf("\n%v\n\n!=\n\n%v", allValues, correct)
+	}
+}
+
+func TestStopVarSize(t *testing.T) {
+	out, stop := VariableSize(3)
+
+	allValues := [][]int{}
+	i := 0
+	for indices := range out {
+		if i == 4 {
+			stop()
+			break
+		}
+		allValues = append(allValues, indices)
+		i++
+	}
+
+	correct := [][]int{
+		{},
+		{2},
+		{1},
+		{2, 1},
+	}
+	if !reflect.DeepEqual(correct, allValues) {
+		t.Fatalf("\n%v\n\n!=\n\n%v", allValues, correct)
+	}
+}
+
+func TestLinkedListToFixed(t *testing.T) {
+	check := func(correct []bool, fixed []bool) {
+		if !reflect.DeepEqual(correct, fixed) {
+			t.Fatalf("\n%v\n\n!=\n\n%v", fixed, correct)
+		}
+	}
+
+	indices := linkedlist.New(nil)
+	fixed := llToIndicesFixed(3, indices)
+	correct := []bool{false, false, false}
+	check(correct, fixed)
+
+	indices = indices.Push(1)
+	fixed = llToIndicesFixed(3, indices)
+	correct = []bool{false, true, false}
+	check(correct, fixed)
+
+	indices = indices.Push(2)
+	indices = indices.Push(0)
+	fixed = llToIndicesFixed(3, indices)
+	correct = []bool{true, true, true}
+	check(correct, fixed)
+}
+
+func TestLinkedListToVar(t *testing.T) {
+	check := func(correct []int, variable []int) {
+		if !reflect.DeepEqual(correct, variable) {
+			t.Fatalf("\n%v\n\n!=\n\n%v", variable, correct)
+		}
+	}
+
+	indices := linkedlist.New(nil)
+	variable := llToIndicesVariable(indices)
+	correct := []int{}
+	check(correct, variable)
+
+	indices = indices.Push(1)
+	variable = llToIndicesVariable(indices)
+	correct = []int{1}
+	check(correct, variable)
+
+	indices = indices.Push(2)
+	indices = indices.Push(0)
+	variable = llToIndicesVariable(indices)
+	correct = []int{0, 2, 1}
+	check(correct, variable)
+}
+
+func TestCallback(t *testing.T) {
+	correct := [][]*PathNode{
+		{},
+		{{0, false}},
+		{{1, false}, {0, false}},
+		{{2, false}, {1, false}, {0, false}},
+		{{2, true}, {1, false}, {0, false}},
+		{{1, true}, {0, false}},
+		{{2, false}, {1, true}, {0, false}},
+		{{2, true}, {1, true}, {0, false}},
+		{{0, true}},
+		{{1, false}, {0, true}},
+		{{2, false}, {1, false}, {0, true}},
+		{{2, true}, {1, false}, {0, true}},
+		{{1, true}, {0, true}},
+		{{2, false}, {1, true}, {0, true}},
+		{{2, true}, {1, true}, {0, true}},
+	}
+
+	i := 0
+	visit := func(path Path, isLeaf bool) (bool, int) {
+		for j, segment := range path {
+			correctSeg := correct[i][j]
+			if *segment != *correctSeg {
+				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
+			}
+		}
+		i++
+		return false, 0
+	}
+	Callback(3, visit)
+
+	if i != len(correct) {
+		t.Fatalf("callback not called enough times!")
+	}
+}
+
+func TestCallbackTerminate(t *testing.T) {
+	correct := [][]*PathNode{
+		{},
+		{{0, false}},
+		{{1, false}, {0, false}},
+		{{2, false}, {1, false}, {0, false}},
+	}
+
+	i := 0
+	visit := func(path Path, isLeaf bool) (bool, int) {
+		for j, segment := range path {
+			if i >= len(correct) {
+				t.Fatalf("too many results (didn't terminate correctly)")
+			}
+
+			correctSeg := correct[i][j]
+			if *segment != *correctSeg {
+				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
+			}
+		}
+		i++
+
+		if i == 4 {
+			return true, -1 // terminate to *before* the root node (0)
+		} else {
+			return false, 0
+		}
+	}
+	Callback(3, visit)
+
+	if i != len(correct) {
+		t.Fatalf("callback not called enough times!")
+	}
+}
+
+func TestCallbackPartialTerminate(t *testing.T) {
+	correct := [][]*PathNode{
+		{},
+		{{0, false}},
+		{{1, false}, {0, false}},
+		{{2, false}, {1, false}, {0, false}},
+		{{2, true}, {1, false}, {0, false}},
+		{{1, true}, {0, false}},
+
+		// callback terminates, preventing two nodes from being evaluated:
+		//{{2, false}, {1, true}, {0, false}},
+		//{{2, true}, {1, true}, {0, false}},
+
+		{{0, true}},
+		{{1, false}, {0, true}},
+		{{2, false}, {1, false}, {0, true}},
+		{{2, true}, {1, false}, {0, true}},
+		{{1, true}, {0, true}},
+		{{2, false}, {1, true}, {0, true}},
+		{{2, true}, {1, true}, {0, true}},
+	}
+
+	i := 0
+	visit := func(path Path, isLeaf bool) (bool, int) {
+		for j, segment := range path {
+			if i >= len(correct) {
+				t.Fatalf("too many results (didn't terminate correctly)")
+			}
+
+			correctSeg := correct[i][j]
+			if *segment != *correctSeg {
+				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
+			}
+		}
+		i++
+
+		if ValidatePath(path, Path{{1, true}, {0, false}}) {
+			return true, 0
+		}
+
+		return false, 0
+	}
+	Callback(3, visit)
+
+	if i != len(correct) {
+		t.Fatalf("callback not called enough times!")
+	}
+}
