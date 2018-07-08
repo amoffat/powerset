@@ -115,8 +115,7 @@ func FixedSize(lenItems int) (<-chan []bool, func()) {
 		}
 	}()
 
-	chans := []interface{}{indicesOut, out}
-	stop := makeStopper(stopIn, chans, wg)
+	stop := makeStopper(stopIn, out, wg)
 
 	return out, stop
 }
@@ -143,39 +142,31 @@ func VariableSize(lenItems int) (<-chan []int, func()) {
 		}
 	}()
 
-	chans := []interface{}{indicesOut, out}
-	stop := makeStopper(stopIn, chans, &wg)
+	stop := makeStopper(stopIn, out, &wg)
 
 	return out, stop
 }
 
+// returns a function that can be used to stop a goroutine which writes to an output channel
 func makeStopper(in chan<- bool, toDrain interface{}, wg *sync.WaitGroup) func() {
-	toDrainVal := reflect.ValueOf(toDrain)
+	drainChan := reflect.ValueOf(toDrain)
+	chanCases := []reflect.SelectCase{{
+		Chan: drainChan,
+		Dir:  reflect.SelectRecv,
+	}}
 
 	stop := func() {
 		defer close(in)
 		in <- true
 
-		chanCases := make([]reflect.SelectCase, toDrainVal.Len())
-		for i := 0; i < toDrainVal.Len(); i++ {
-			chVal := reflect.ValueOf(toDrainVal.Index(i).Interface())
-			chCase := &chanCases[i]
-			chCase.Chan = chVal
-			chCase.Dir = reflect.SelectRecv
-		}
-
 		// now we need to drain our output channel, since the gopher probably will have fetched the next node before we
 		// had a chance to tell it to stop.  if we don't drain, the goroutine never finishes, since our caller probably
 		// break'd out of the ranged loop on the channel, meaning we're no longer reading from the channel, meaning the
 		// goroutine can't successfully send any more nodes
-		closedCount := 0
-		for closedCount < toDrainVal.Len() {
-			_, _, ok := reflect.Select(chanCases)
-			if !ok {
-				closedCount++
-			}
+		ok := true
+		for ok {
+			_, _, ok = reflect.Select(chanCases)
 		}
-
 		wg.Wait()
 	}
 	return stop
