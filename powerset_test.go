@@ -2,6 +2,7 @@ package powerset
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/amoffat/linkedlist"
@@ -148,37 +149,66 @@ func TestLinkedListToVar(t *testing.T) {
 	check(correct, variable)
 }
 
+type answer struct {
+	path  Path
+	state string
+}
+
+func stringState(lastState string, node *PathNode) string {
+	prefix := "-"
+	comma := ""
+	if len(lastState) > 0 {
+		comma = ","
+	}
+	if node.Included {
+		prefix = "+"
+	}
+	state := prefix + strconv.Itoa(node.Index) + comma + lastState
+	return state
+}
+
 func TestCallback(t *testing.T) {
-	correct := [][]*PathNode{
-		{},
-		{{0, false}},
-		{{1, false}, {0, false}},
-		{{2, false}, {1, false}, {0, false}},
-		{{2, true}, {1, false}, {0, false}},
-		{{1, true}, {0, false}},
-		{{2, false}, {1, true}, {0, false}},
-		{{2, true}, {1, true}, {0, false}},
-		{{0, true}},
-		{{1, false}, {0, true}},
-		{{2, false}, {1, false}, {0, true}},
-		{{2, true}, {1, false}, {0, true}},
-		{{1, true}, {0, true}},
-		{{2, false}, {1, true}, {0, true}},
-		{{2, true}, {1, true}, {0, true}},
+	correct := []answer{
+		{Path{}, ""},
+		{Path{{0, false}}, "-0"},
+		{Path{{1, false}, {0, false}}, "-1,-0"},
+		{Path{{2, false}, {1, false}, {0, false}}, "-2,-1,-0"},
+		{Path{{2, true}, {1, false}, {0, false}}, "+2,-1,-0"},
+		{Path{{1, true}, {0, false}}, "+1,-0"},
+		{Path{{2, false}, {1, true}, {0, false}}, "-2,+1,-0"},
+		{Path{{2, true}, {1, true}, {0, false}}, "+2,+1,-0"},
+		{Path{{0, true}}, "+0"},
+		{Path{{1, false}, {0, true}}, "-1,+0"},
+		{Path{{2, false}, {1, false}, {0, true}}, "-2,-1,+0"},
+		{Path{{2, true}, {1, false}, {0, true}}, "+2,-1,+0"},
+		{Path{{1, true}, {0, true}}, "+1,+0"},
+		{Path{{2, false}, {1, true}, {0, true}}, "-2,+1,+0"},
+		{Path{{2, true}, {1, true}, {0, true}}, "+2,+1,+0"},
 	}
 
 	i := 0
-	visit := func(path Path, isLeaf bool) (bool, int) {
+	visit := func(path Path, isLeaf bool, rawState interface{}) (bool, int, interface{}) {
+		var state string
+		if len(path) > 0 {
+			node := path[0]
+			state = stringState(rawState.(string), node)
+		}
+		curCorrect := correct[i]
+
+		if state != curCorrect.state {
+			t.Fatalf("state doesn't match")
+		}
+
 		for j, segment := range path {
-			correctSeg := correct[i][j]
+			correctSeg := curCorrect.path[j]
 			if *segment != *correctSeg {
 				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
 			}
 		}
 		i++
-		return false, 0
+		return false, 0, state
 	}
-	Callback(3, visit)
+	Callback(3, visit, "")
 
 	if i != len(correct) {
 		t.Fatalf("callback not called enough times!")
@@ -186,21 +216,31 @@ func TestCallback(t *testing.T) {
 }
 
 func TestCallbackTerminate(t *testing.T) {
-	correct := [][]*PathNode{
-		{},
-		{{0, false}},
-		{{1, false}, {0, false}},
-		{{2, false}, {1, false}, {0, false}},
+	correct := []answer{
+		{Path{}, ""},
+		{Path{{0, false}}, "-0"},
+		{Path{{1, false}, {0, false}}, "-1,-0"},
+		{Path{{2, false}, {1, false}, {0, false}}, "-2,-1,-0"},
 	}
 
 	i := 0
-	visit := func(path Path, isLeaf bool) (bool, int) {
+	visit := func(path Path, isLeaf bool, rawState interface{}) (bool, int, interface{}) {
+		var state string
+		if len(path) > 0 {
+			node := path[0]
+			state = stringState(rawState.(string), node)
+		}
+		curCorrect := correct[i]
+
 		for j, segment := range path {
 			if i >= len(correct) {
 				t.Fatalf("too many results (didn't terminate correctly)")
 			}
+			if state != curCorrect.state {
+				t.Fatalf("state doesn't match")
+			}
 
-			correctSeg := correct[i][j]
+			correctSeg := curCorrect.path[j]
 			if *segment != *correctSeg {
 				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
 			}
@@ -208,12 +248,12 @@ func TestCallbackTerminate(t *testing.T) {
 		i++
 
 		if i == 4 {
-			return true, -1 // terminate to *before* the root node (0)
+			return true, -1, state // terminate to *before* the root node (0)
 		} else {
-			return false, 0
+			return false, 0, state
 		}
 	}
-	Callback(3, visit)
+	Callback(3, visit, nil)
 
 	if i != len(correct) {
 		t.Fatalf("callback not called enough times!")
@@ -221,35 +261,46 @@ func TestCallbackTerminate(t *testing.T) {
 }
 
 func TestCallbackPartialTerminate(t *testing.T) {
-	correct := [][]*PathNode{
-		{},
-		{{0, false}},
-		{{1, false}, {0, false}},
-		{{2, false}, {1, false}, {0, false}},
-		{{2, true}, {1, false}, {0, false}},
-		{{1, true}, {0, false}},
+	correct := []answer{
+		{Path{}, ""},
+		{Path{{0, false}}, "-0"},
+		{Path{{1, false}, {0, false}}, "-1,-0"},
+		{Path{{2, false}, {1, false}, {0, false}}, "-2,-1,-0"},
+		{Path{{2, true}, {1, false}, {0, false}}, "+2,-1,-0"},
+		{Path{{1, true}, {0, false}}, "+1,-0"},
 
 		// callback terminates, preventing two nodes from being evaluated:
-		//{{2, false}, {1, true}, {0, false}},
-		//{{2, true}, {1, true}, {0, false}},
+		//{Path{{2, false}, {1, true}, {0, false}}, "-2,+1,-0"},
+		//{Path{{2, true}, {1, true}, {0, false}}, "+2,+1,-0"},
 
-		{{0, true}},
-		{{1, false}, {0, true}},
-		{{2, false}, {1, false}, {0, true}},
-		{{2, true}, {1, false}, {0, true}},
-		{{1, true}, {0, true}},
-		{{2, false}, {1, true}, {0, true}},
-		{{2, true}, {1, true}, {0, true}},
+		{Path{{0, true}}, "+0"},
+		{Path{{1, false}, {0, true}}, "-1,+0"},
+		{Path{{2, false}, {1, false}, {0, true}}, "-2,-1,+0"},
+		{Path{{2, true}, {1, false}, {0, true}}, "+2,-1,+0"},
+		{Path{{1, true}, {0, true}}, "+1,+0"},
+		{Path{{2, false}, {1, true}, {0, true}}, "-2,+1,+0"},
+		{Path{{2, true}, {1, true}, {0, true}}, "+2,+1,+0"},
 	}
 
 	i := 0
-	visit := func(path Path, isLeaf bool) (bool, int) {
+	visit := func(path Path, isLeaf bool, rawState interface{}) (bool, int, interface{}) {
+		var state string
+		if len(path) > 0 {
+			node := path[0]
+			state = stringState(rawState.(string), node)
+		}
+		curCorrect := correct[i]
+
+		if state != curCorrect.state {
+			t.Fatalf("state doesn't match")
+		}
+
 		for j, segment := range path {
 			if i >= len(correct) {
 				t.Fatalf("too many results (didn't terminate correctly)")
 			}
 
-			correctSeg := correct[i][j]
+			correctSeg := curCorrect.path[j]
 			if *segment != *correctSeg {
 				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
 			}
@@ -257,12 +308,12 @@ func TestCallbackPartialTerminate(t *testing.T) {
 		i++
 
 		if ValidatePath(path, Path{{1, true}, {0, false}}) {
-			return true, 0
+			return true, 0, state
 		}
 
-		return false, 0
+		return false, 0, state
 	}
-	Callback(3, visit)
+	Callback(3, visit, "")
 
 	if i != len(correct) {
 		t.Fatalf("callback not called enough times!")
