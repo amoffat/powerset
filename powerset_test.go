@@ -1,11 +1,10 @@
 package powerset
 
 import (
+	"container/list"
 	"reflect"
 	"strconv"
 	"testing"
-
-	"github.com/amoffat/linkedlist"
 )
 
 func TestVarSize(t *testing.T) {
@@ -108,18 +107,18 @@ func TestLinkedListToFixed(t *testing.T) {
 		}
 	}
 
-	indices := linkedlist.New(nil)
+	indices := list.New()
 	fixed := llToIndicesFixed(3, indices)
 	correct := []bool{false, false, false}
 	check(correct, fixed)
 
-	indices = indices.Push(1)
+	indices.PushFront(1)
 	fixed = llToIndicesFixed(3, indices)
 	correct = []bool{false, true, false}
 	check(correct, fixed)
 
-	indices = indices.Push(2)
-	indices = indices.Push(0)
+	indices.PushFront(2)
+	indices.PushFront(0)
 	fixed = llToIndicesFixed(3, indices)
 	correct = []bool{true, true, true}
 	check(correct, fixed)
@@ -132,18 +131,18 @@ func TestLinkedListToVar(t *testing.T) {
 		}
 	}
 
-	indices := linkedlist.New(nil)
+	indices := list.New()
 	variable := llToIndicesVariable(indices)
 	correct := []int{}
 	check(correct, variable)
 
-	indices = indices.Push(1)
+	indices.PushFront(1)
 	variable = llToIndicesVariable(indices)
 	correct = []int{1}
 	check(correct, variable)
 
-	indices = indices.Push(2)
-	indices = indices.Push(0)
+	indices.PushFront(2)
+	indices.PushFront(0)
 	variable = llToIndicesVariable(indices)
 	correct = []int{0, 2, 1}
 	check(correct, variable)

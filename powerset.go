@@ -1,11 +1,10 @@
 package powerset
 
 import (
+	"container/list"
 	"fmt"
 	"strings"
 	"sync"
-
-	"github.com/amoffat/linkedlist"
 )
 
 // represents a node in a pathway through the powerset tree.  going left through the tree means the index at which we've
@@ -18,7 +17,7 @@ type PathNode struct {
 type Path []*PathNode
 
 type NodeCallback func(Path, bool, interface{}, chan<- interface{}) (bool, int, interface{})
-type internalCallback func(*linkedlist.Node, bool, interface{}) (bool, int, interface{})
+type internalCallback func(*list.List, bool, interface{}) (bool, int, interface{})
 
 func (path Path) String() string {
 	buf := []string{}
@@ -49,10 +48,10 @@ func ValidatePath(path Path, check Path) bool {
 
 // generate the powerset but at each leaf node call the callback
 func Callback(lenItems int, cb NodeCallback, state interface{}) <-chan interface{} {
-	indices := linkedlist.New(nil)
-	path := linkedlist.New(nil)
+	indices := list.New()
+	path := list.New()
 	out := make(chan interface{})
-	wrappedCb := func(indices *linkedlist.Node, isLeaf bool, state interface{}) (bool, int, interface{}) {
+	wrappedCb := func(indices *list.List, isLeaf bool, state interface{}) (bool, int, interface{}) {
 		return cb(llToPath(indices), isLeaf, state, out)
 	}
 	go powerSetCallback(0, lenItems, indices, wrappedCb, path, state, out)
@@ -61,60 +60,49 @@ func Callback(lenItems int, cb NodeCallback, state interface{}) <-chan interface
 
 // convert a linked list to a fixed size array of booleans where the indices contained in the linkedlist are true in the
 // fixed array, otherwise false
-func llToIndicesFixed(lenItems int, indices *linkedlist.Node) []bool {
+func llToIndicesFixed(lenItems int, indices *list.List) []bool {
 	unpackedIndices := make([]bool, lenItems)
-	head := indices
+	head := indices.Front()
 
-	if head.Next == nil {
-		return unpackedIndices
-	} else {
-		for head != nil && head.Data != nil {
-			idx := head.Data.(int)
-			unpackedIndices[idx] = true
-			head = head.Next
-		}
-		return unpackedIndices
+	for head != nil {
+		idx := head.Value.(int)
+		unpackedIndices[idx] = true
+		head = head.Next()
 	}
+	return unpackedIndices
 }
 
 // convert a linked list to a variable array of integer indices contained in the linked list
-func llToIndicesVariable(indices *linkedlist.Node) []int {
+func llToIndicesVariable(indices *list.List) []int {
 	unpackedIndices := []int{}
-	head := indices
+	head := indices.Front()
 
-	if head.Next == nil {
-		return unpackedIndices
-	} else {
-		for head != nil && head.Data != nil {
-			unpackedIndices = append(unpackedIndices, head.Data.(int))
-			head = head.Next
-		}
-		return unpackedIndices
+	for head != nil {
+		idx := head.Value.(int)
+		unpackedIndices = append(unpackedIndices, idx)
+		head = head.Next()
 	}
+	return unpackedIndices
 }
 
-func llToPath(indices *linkedlist.Node) []*PathNode {
+func llToPath(indices *list.List) []*PathNode {
 	unpacked := []*PathNode{}
-	head := indices
+	head := indices.Front()
 
-	if head.Next == nil {
-		return unpacked
-	} else {
-		for head != nil && head.Data != nil {
-			unpacked = append(unpacked, head.Data.(*PathNode))
-			head = head.Next
-		}
-		return unpacked
+	for head != nil {
+		unpacked = append(unpacked, head.Value.(*PathNode))
+		head = head.Next()
 	}
+	return unpacked
 }
 
 // generates a powerset of fixed size items.  each item returned on the output channel has a length of lenItems and each
 // element is either true or false, indicating that the index is included in the combination
 func FixedSize(lenItems int) (<-chan []bool, func()) {
 	out := make(chan []bool)
-	indicesOut := make(chan linkedlist.Node)
+	indicesOut := make(chan *list.List)
 	stopIn := make(chan bool)
-	indices := linkedlist.New(nil)
+	indices := list.New()
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
@@ -125,7 +113,7 @@ func FixedSize(lenItems int) (<-chan []bool, func()) {
 		defer wg.Done()
 
 		for indices := range indicesOut {
-			unpackedIndices := llToIndicesFixed(lenItems, &indices)
+			unpackedIndices := llToIndicesFixed(lenItems, indices)
 			select {
 			case <-stopIn:
 				break
@@ -143,9 +131,9 @@ func FixedSize(lenItems int) (<-chan []bool, func()) {
 // the index numbers othemselves of the items included in each combination
 func VariableSize(lenItems int) (<-chan []int, func()) {
 	out := make(chan []int)
-	indicesOut := make(chan linkedlist.Node)
+	indicesOut := make(chan *list.List)
 	stopIn := make(chan bool)
-	indices := linkedlist.New(nil)
+	indices := list.New()
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -156,7 +144,7 @@ func VariableSize(lenItems int) (<-chan []int, func()) {
 		defer wg.Done()
 
 		for indices := range indicesOut {
-			unpackedIndices := llToIndicesVariable(&indices)
+			unpackedIndices := llToIndicesVariable(indices)
 			select {
 			case <-stopIn:
 				break
@@ -179,8 +167,18 @@ func makeStopper(in chan<- bool, wg *sync.WaitGroup) func() {
 	return stop
 }
 
+func copyLL(l *list.List) *list.List {
+	newList := list.New()
+	head := l.Front()
+	for head != nil {
+		newList.PushBack(head.Value)
+		head = head.Next()
+	}
+	return newList
+}
+
 // the internal mechanism for generating a powerset
-func powerSet(n int, k int, indices *linkedlist.Node, out chan<- linkedlist.Node, wg *sync.WaitGroup, stopIn <-chan bool) bool {
+func powerSet(n int, k int, indices *list.List, out chan<- *list.List, wg *sync.WaitGroup, stopIn <-chan bool) bool {
 	if n == 0 {
 		defer close(out)
 		defer wg.Done()
@@ -192,7 +190,7 @@ func powerSet(n int, k int, indices *linkedlist.Node, out chan<- linkedlist.Node
 		select {
 		case <-stopIn:
 			return true
-		case out <- *indices:
+		case out <- copyLL(indices):
 		}
 		return done
 	}
@@ -203,9 +201,9 @@ func powerSet(n int, k int, indices *linkedlist.Node, out chan<- linkedlist.Node
 	default:
 		done = powerSet(n+1, k, indices, out, wg, stopIn)
 		if !done {
-			indices = indices.Push(n)
+			rightPushed := indices.PushFront(n)
 			done = powerSet(n+1, k, indices, out, wg, stopIn)
-			indices, _ = indices.Pop()
+			indices.Remove(rightPushed)
 		}
 	}
 
@@ -215,7 +213,7 @@ func powerSet(n int, k int, indices *linkedlist.Node, out chan<- linkedlist.Node
 
 // internal function that creates a powerset but calls a callback at each node, including the leaves.  if the callback
 // returns true for "done", we stop
-func powerSetCallback(n int, k int, indices *linkedlist.Node, cb internalCallback, path *linkedlist.Node,
+func powerSetCallback(n int, k int, indices *list.List, cb internalCallback, path *list.List,
 	state interface{}, out chan<- interface{}) (bool, int) {
 
 	stop := false
@@ -239,9 +237,9 @@ func powerSetCallback(n int, k int, indices *linkedlist.Node, cb internalCallbac
 		return false, 0
 	}
 
-	path = path.Push(&PathNode{Index: n, Included: false})
+	leftPathPushed := path.PushFront(&PathNode{Index: n, Included: false})
 	stop, stopNode = powerSetCallback(n+1, k, indices, cb, path, state, out)
-	path, _ = path.Pop()
+	path.Remove(leftPathPushed)
 
 	// if our left branch told us to stop, let's figure out what we need to do
 	if stop {
@@ -256,13 +254,12 @@ func powerSetCallback(n int, k int, indices *linkedlist.Node, cb internalCallbac
 		}
 	}
 
-	indices = indices.Push(n)
-
-	path = path.Push(&PathNode{Index: n, Included: true})
+	rightIndexPushed := indices.PushFront(n)
+	rightPathPushed := path.PushFront(&PathNode{Index: n, Included: true})
 	stop, stopNode = powerSetCallback(n+1, k, indices, cb, path, state, out)
 
-	path, _ = path.Pop()
-	indices, _ = indices.Pop()
+	path.Remove(rightPathPushed)
+	indices.Remove(rightIndexPushed)
 
 	return stop, stopNode
 }
