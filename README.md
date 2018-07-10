@@ -1,7 +1,8 @@
 # Powerset.go
 
 A flexible library for generating powersets incrementally to solve problems that require considering the set of all
-possible subsets.  See it in action: [N-Queens Problem](#example-n-queens)
+possible subsets, often used with [backtracking](https://en.wikipedia.org/wiki/Backtracking).  See it in action:
+[N-Queens Problem](#example-n-queens)
 
 # Usage
 
@@ -78,7 +79,7 @@ included.  For example, `[]` is the null set, while `[0,2]` is the set `{0,2}`.
 
 The callback version is the most advanced version of powerset generation.  This version allows you to provide a callback
 that is called at each intermediary node of the powerset tree, and gives you the option to terminate generation up to an
-arbitrary parent if you want to discontinue a subtree  This allows you to choose to not evaluate specific branches of
+arbitrary parent if you want to discontinue a subtree.  This allows you to choose to not evaluate specific branches of
 the powerset based on user logic in the callback.
 
 ```go
@@ -123,10 +124,10 @@ Each leaf in the tree is a specific set in the powerset, starting from the null 
 (far right).  The intermediary nodes are paths through the tree specified by whether or not indices were included or
 excluded.
 
-The callback passed to `powerset.Callback` should expect a `Path`, which is a type alias for `[]*PathNode`.  Each
-`PathNode` struct contains an index and whether or not the index is explicitly included at the current powerset node.
-Below is an example pathway through the tree.  The green dotted line indicates the pathway `{+1,-0}`.  So the `Path`
-that the callback would receive at this node would be `[]*PathNodes{{1,true}, {0,false}}`:
+The callback's first argument is receiving a `Path`, which is a type alias for `[]*PathNode`.  Each `PathNode` struct
+contains an index and whether or not the index is explicitly included at the current powerset node.  Below is an example
+pathway through the tree.  The green dotted line indicates the pathway `{+1,-0}`.  So the `Path` that the callback would
+receive at this node would be `[]*PathNodes{{1,true}, {0,false}}`:
 
 ![https://i.imgur.com/5UmMQ0c.jpg](https://i.imgur.com/5UmMQ0c.jpg)
 
@@ -137,13 +138,14 @@ The first argument is our `powerset.Path` which we covered above.
 The second argument, `isLeaf bool` is a simple flag to let your callback know if we're on a leaf or intermediary node.
 
 The third argument, `state interface{}` gives us the bulk of the power.  It represents some arbitrary state that we can
-mutate, whose value will propagate only to child nodes.  For example, in the n-queens problem at the end of this README,
-the state represents the board with the queens positions.  When new branches of the powerset tree are explored, this
-state is updated to add new queens, and when we backtrack to previous nodes, we automatically re-use old board states.
-State can be anything you want, hence `interface{}`, but it should be noted, *deep copies must be made manually at each
-node*  If your state is a struct containing a map, for example, although the struct itself is passed by value to the
-callback, the underlying mapping will share its heap-allocated data with the previous state, causing problems in your
-algorithm.  If you experience weird behavior, it's likely that you didn't fully copy your state between nodes.
+mutate, whose value will propagate only to child nodes.  For example, in the [n-queens problem](#example-n-queens) at
+the end of this README, the state represents the board with the queens positions.  When new branches of the powerset
+tree are explored, this state is updated to add new queens, and when we backtrack to previous nodes, we automatically
+re-use old board states.  State can be anything you want, hence `interface{}`, but it should be noted, *deep copies must
+be made manually at each node.*  If your state is a struct containing a map, for example, although the struct itself is
+passed by value to the callback, the underlying mapping will share its heap-allocated data with the previous state,
+causing problems in your algorithm.  If you experience weird behavior, it's likely that you didn't fully copy your state
+between nodes.
 
 The last argument is self explanatory and is a channel for communicating your solutions to the caller.  In the n-queens
 example, we use this to write out our valid board positions.
@@ -155,12 +157,13 @@ The return value of the callback is a tuple `bool, int, interface{}`.
 The first and second argument go together.  The `bool` is whether or not we should terminate generation of child nodes,
 and the `int` is which parent we should continue the algorithm.  In most cases, when you terminate, you will usually
 want to continue at the parent, which would corrspond to `len(path) - 1`.  You can see in this image, from the blue
-lines to the right, that the root node is zero-indexed, which would make our current node `len(path)`:
+lines to the right, that the root node is zero-indexed, which would make our current node `len(path)`, because a node's
+height index will receive that many path segments:
 
 ![https://i.imgur.com/5UmMQ0c.jpg](https://i.imgur.com/5UmMQ0c.jpg)
 
 If we terminate to the parent from a left branch, processing will continue at the right sibling.  If we terminate to the
-parent from the left branch, processing will continue with the grandparent (since the parent has no more children to
+parent from the *right* branch, processing will continue with the grandparent (since the parent has no more children to
 explore).  Using `true, 0` will terminate to the root, while `true, -1` will terminate to *before* the root, meaning the
 algorithm terminates completely.
 
