@@ -174,10 +174,13 @@ queens can attack eachother.  We can solve this using [backtracking](https://en.
 fits in nicely with `powerset.Callback`.
 
 The basic idea is that we'll represent our n-by-n board grid cells as integers and examine the powerset of the cells.
-If a cell is included in a set, it has a queen on it, otherwise it doesn't.  A brute force search would take 2^(n\*n)
-steps just to search the solution space for all possible arrangements.  Fortunately, by backtracking when we immediately
-find an invalid solution, we can skip out on the vast majority of nodes.  On an 8x8 sized board, the number of nodes we
-actually examine is only 1,849,097, while the number of nodes we skip is 18,446,744,073,707,702,518.
+If a cell is included in a set, it has a queen on it, otherwise it doesn't.  A brute force search would have to visit
+(2^(n\*n-1))-1 nodes just to search the solution space for all possible arrangements.  Fortunately, by backtracking when
+we immediately find an invalid solution, we can skip out on the vast majority of nodes.  On an 8x8 sized board, the
+number of nodes we actually examine is only 1,849,097, while the number of nodes we skip is 18,446,744,073,707,702,518.
+
+We'll choose to backtrack up to the parent node whenever `valid()` is false.  We'll also yield board results on the
+output channel when the number of queens on the board matches n.
 
 ```go
 package main
