@@ -191,7 +191,7 @@ import (
     "os"
     "strconv"
 
-    "github.com/amoffat/algo/powerset"
+    "github.com/amoffat/powerset"
 )
 
 // a 2d slice representing our chess board.  true means a queen occupies that location
