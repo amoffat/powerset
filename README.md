@@ -1,8 +1,8 @@
 # Powerset.go
 
-A flexible library for generating powersets incrementally to solve problems that require considering the set of all
-possible subsets, often used with [backtracking](https://en.wikipedia.org/wiki/Backtracking).  See it in action:
-[N-Queens Problem](#example-n-queens)
+A flexible library for generating powersets incrementally to solve problems that require intelligently considering the
+set of all possible subsets, often used with [backtracking](https://en.wikipedia.org/wiki/Backtracking).  See it in
+action: [N-Queens Problem](#example-n-queens)
 
 # Usage
 
