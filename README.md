@@ -215,13 +215,14 @@ type Position struct {
 
 // outputs the board in a friendly format:
 //
-// 0 1 0 0 0 0 0
-// 0 0 0 0 0 0 1
-// 0 0 0 0 1 0 0
-// 0 0 1 0 0 0 0
-// 1 0 0 0 0 0 0
-// 0 0 0 0 0 1 0
-// 0 0 0 1 0 0 0
+// 0 0 0 0 0 1 0 0
+// 1 0 0 0 0 0 0 0
+// 0 0 0 0 1 0 0 0
+// 0 1 0 0 0 0 0 0
+// 0 0 0 0 0 0 0 1
+// 0 0 1 0 0 0 0 0
+// 0 0 0 0 0 0 1 0
+// 0 0 0 1 0 0 0 0
 func PrintBoard(board Board) {
     size := len(board)
     for y := 0; y < size; y++ {
