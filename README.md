@@ -4,7 +4,7 @@
 [![Go Report
 Card](https://goreportcard.com/badge/github.com/amoffat/powerset)](https://goreportcard.com/report/github.com/amoffat/powerset)
 [![Coverage
-Status](https://coveralls.io/repos/github/amoffat/powerset/badge.svg?branch=master)](https://coveralls.io/github/amoffat/powerset?branch=master)
+Status](https://coveralls.io/repos/github/amoffat/powerset/badge.svg?branch=master&cache=1)](https://coveralls.io/github/amoffat/powerset?branch=master)
 
 A flexible library for generating powersets incrementally to solve problems that require intelligently considering the
 set of all possible subsets, often used with [backtracking](https://en.wikipedia.org/wiki/Backtracking).  See it in
