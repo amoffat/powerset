@@ -344,3 +344,24 @@ func TestCallbackPartialTerminate(t *testing.T) {
 		t.Fatalf("callback not called enough times!")
 	}
 }
+
+func TestPathString(t *testing.T) {
+	path := Path{
+		{1, false},
+		{2, true},
+	}
+	out := path.String()
+	correct := "{1 false} {2 true}"
+	if out != correct {
+		t.Fatalf("\n%v\n!=\n%v", out, correct)
+	}
+}
+
+func TestPathStringEmpty(t *testing.T) {
+	path := Path{}
+	out := path.String()
+	correct := "{}"
+	if out != correct {
+		t.Fatalf("\n%v\n!=\n%v", out, correct)
+	}
+}
