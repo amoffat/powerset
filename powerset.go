@@ -7,15 +7,17 @@ import (
 	"sync"
 )
 
-// represents a node in a pathway through the powerset tree.  going left through the tree means the index at which we've
-// decided to go left will not be included, going right means it will be included
+// PathNode represents a node in a pathway through the powerset tree.  going left through the tree means the index at
+// which we've decided to go left will not be included, going right means it will be included
 type PathNode struct {
 	Index    int
 	Included bool
 }
 
+// Path is an alias for a slice of PathNodes
 type Path []*PathNode
 
+// NodeCallback represents a callback to Callback
 type NodeCallback func(Path, bool, interface{}, chan<- interface{}) (bool, int, interface{})
 type internalCallback func(*list.List, bool, interface{}) (bool, int, interface{})
 
@@ -31,7 +33,7 @@ func (path Path) String() string {
 	return strings.Join(buf, " ")
 }
 
-// a helper for validating that two Paths match.  useful in a callback
+// ValidatePath is a helper for validating that two Paths match.  useful in a callback
 func ValidatePath(path Path, check Path) bool {
 	if len(path) != len(check) {
 		return false
@@ -46,7 +48,7 @@ func ValidatePath(path Path, check Path) bool {
 	return true
 }
 
-// generate the powerset but at each leaf node call the callback
+// Callback generates the powerset but at each leaf node call the callback
 func Callback(lenItems int, cb NodeCallback, state interface{}) <-chan interface{} {
 	indices := list.New()
 	path := list.New()
@@ -96,8 +98,8 @@ func llToPath(indices *list.List) []*PathNode {
 	return unpacked
 }
 
-// generates a powerset of fixed size items.  each item returned on the output channel has a length of lenItems and each
-// element is either true or false, indicating that the index is included in the combination
+// FixedSize generates a powerset of fixed size items.  each item returned on the output channel has a length of
+// lenItems and each element is either true or false, indicating that the index is included in the combination
 func FixedSize(lenItems int) (<-chan []bool, func()) {
 	out := make(chan []bool)
 	indicesOut := make(chan *list.List)
@@ -127,8 +129,8 @@ func FixedSize(lenItems int) (<-chan []bool, func()) {
 	return out, stop
 }
 
-// generates a variable size powerset.  each slice returned on the output channel is a variable size slice containing
-// the index numbers othemselves of the items included in each combination
+// VariableSize generates a variable size powerset.  each slice returned on the output channel is a variable size slice
+// containing the index numbers othemselves of the items included in each combination
 func VariableSize(lenItems int) (<-chan []int, func()) {
 	out := make(chan []int)
 	indicesOut := make(chan *list.List)
@@ -247,11 +249,10 @@ func powerSetCallback(n int, k int, indices *list.List, cb internalCallback, pat
 			// we're deeper in the tree than our stop node, which means we need to terminate going any deeper and
 			// propagate the stop
 			return stop, stopNode
-		} else {
-			// otherwise, we're at the stop node or earlier, which means we can discontinue stopping and continue as
-			// normal
-			stop = false
 		}
+		// otherwise, we're at the stop node or earlier, which means we can discontinue stopping and continue as
+		// normal
+		stop = false
 	}
 
 	rightIndexPushed := indices.PushFront(n)

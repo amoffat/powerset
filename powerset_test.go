@@ -249,9 +249,8 @@ func TestCallbackTerminate(t *testing.T) {
 
 		if i == 4 {
 			return true, -1, state // terminate to *before* the root node (0)
-		} else {
-			return false, 0, state
 		}
+		return false, 0, state
 	}
 	out := Callback(3, visit, nil)
 
