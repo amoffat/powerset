@@ -187,7 +187,7 @@ func TestCallback(t *testing.T) {
 	}
 
 	i := 0
-	visit := func(path Path, isLeaf bool, rawState interface{}) (bool, int, interface{}) {
+	visit := func(path Path, isLeaf bool, rawState interface{}, out chan<- interface{}) (bool, int, interface{}) {
 		var state string
 		if len(path) > 0 {
 			node := path[0]
@@ -199,19 +199,29 @@ func TestCallback(t *testing.T) {
 			t.Fatalf("state doesn't match")
 		}
 
-		for j, segment := range path {
-			correctSeg := curCorrect.path[j]
-			if *segment != *correctSeg {
-				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
-			}
-		}
+		out <- path
 		i++
 		return false, 0, state
 	}
-	Callback(3, visit, "")
+
+	out := Callback(3, visit, "")
+
+	k := 0
+	for pathRaw := range out {
+		path := pathRaw.(Path)
+		curCorrect := correct[k]
+
+		for j, segment := range path {
+			correctSeg := curCorrect.path[j]
+			if *segment != *correctSeg {
+				t.Fatalf("index k=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", k, j, segment, correctSeg)
+			}
+		}
+		k++
+	}
 
 	if i != len(correct) {
-		t.Fatalf("callback not called enough times!")
+		t.Fatalf("callback not called enough times! %d", i)
 	}
 }
 
@@ -224,7 +234,7 @@ func TestCallbackTerminate(t *testing.T) {
 	}
 
 	i := 0
-	visit := func(path Path, isLeaf bool, rawState interface{}) (bool, int, interface{}) {
+	visit := func(path Path, isLeaf bool, rawState interface{}, out chan<- interface{}) (bool, int, interface{}) {
 		var state string
 		if len(path) > 0 {
 			node := path[0]
@@ -232,19 +242,10 @@ func TestCallbackTerminate(t *testing.T) {
 		}
 		curCorrect := correct[i]
 
-		for j, segment := range path {
-			if i >= len(correct) {
-				t.Fatalf("too many results (didn't terminate correctly)")
-			}
-			if state != curCorrect.state {
-				t.Fatalf("state doesn't match")
-			}
-
-			correctSeg := curCorrect.path[j]
-			if *segment != *correctSeg {
-				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
-			}
+		if state != curCorrect.state {
+			t.Fatalf("state doesn't match")
 		}
+
 		i++
 
 		if i == 4 {
@@ -253,7 +254,24 @@ func TestCallbackTerminate(t *testing.T) {
 			return false, 0, state
 		}
 	}
-	Callback(3, visit, nil)
+	out := Callback(3, visit, nil)
+
+	k := 0
+	for pathRaw := range out {
+		path := pathRaw.(Path)
+		curCorrect := correct[k]
+
+		if k >= len(correct) {
+			t.Fatalf("too many results (didn't terminate correctly)")
+		}
+
+		for j, segment := range path {
+			correctSeg := curCorrect.path[j]
+			if *segment != *correctSeg {
+				t.Fatalf("index k=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", k, j, segment, correctSeg)
+			}
+		}
+	}
 
 	if i != len(correct) {
 		t.Fatalf("callback not called enough times!")
@@ -283,7 +301,7 @@ func TestCallbackPartialTerminate(t *testing.T) {
 	}
 
 	i := 0
-	visit := func(path Path, isLeaf bool, rawState interface{}) (bool, int, interface{}) {
+	visit := func(path Path, isLeaf bool, rawState interface{}, out chan<- interface{}) (bool, int, interface{}) {
 		var state string
 		if len(path) > 0 {
 			node := path[0]
@@ -295,16 +313,6 @@ func TestCallbackPartialTerminate(t *testing.T) {
 			t.Fatalf("state doesn't match")
 		}
 
-		for j, segment := range path {
-			if i >= len(correct) {
-				t.Fatalf("too many results (didn't terminate correctly)")
-			}
-
-			correctSeg := curCorrect.path[j]
-			if *segment != *correctSeg {
-				t.Fatalf("index i=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", i, j, segment, correctSeg)
-			}
-		}
 		i++
 
 		if ValidatePath(path, Path{{1, true}, {0, false}}) {
@@ -313,7 +321,26 @@ func TestCallbackPartialTerminate(t *testing.T) {
 
 		return false, 0, state
 	}
-	Callback(3, visit, "")
+	out := Callback(3, visit, "")
+
+	k := 0
+	for pathRaw := range out {
+		path := pathRaw.(Path)
+		curCorrect := correct[k]
+
+		if k >= len(correct) {
+			t.Fatalf("too many results (didn't terminate correctly)")
+		}
+
+		for j, segment := range path {
+			correctSeg := curCorrect.path[j]
+			if *segment != *correctSeg {
+				t.Fatalf("index k=%d j=%d\n%+v\n\ndoesn't match\n\n%+v", k, j, segment, correctSeg)
+			}
+		}
+
+		k++
+	}
 
 	if i != len(correct) {
 		t.Fatalf("callback not called enough times!")

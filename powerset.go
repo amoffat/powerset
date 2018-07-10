@@ -17,7 +17,7 @@ type PathNode struct {
 
 type Path []*PathNode
 
-type NodeCallback func(Path, bool, interface{}) (bool, int, interface{})
+type NodeCallback func(Path, bool, interface{}, chan<- interface{}) (bool, int, interface{})
 type internalCallback func(*linkedlist.Node, bool, interface{}) (bool, int, interface{})
 
 func (path Path) String() string {
@@ -48,13 +48,15 @@ func ValidatePath(path Path, check Path) bool {
 }
 
 // generate the powerset but at each leaf node call the callback
-func Callback(lenItems int, cb NodeCallback, state interface{}) {
+func Callback(lenItems int, cb NodeCallback, state interface{}) <-chan interface{} {
 	indices := linkedlist.New(nil)
 	path := linkedlist.New(nil)
+	out := make(chan interface{})
 	wrappedCb := func(indices *linkedlist.Node, isLeaf bool, state interface{}) (bool, int, interface{}) {
-		return cb(llToPath(indices), isLeaf, state)
+		return cb(llToPath(indices), isLeaf, state, out)
 	}
-	powerSetCallback(0, lenItems, indices, wrappedCb, path, state)
+	go powerSetCallback(0, lenItems, indices, wrappedCb, path, state, out)
+	return out
 }
 
 // convert a linked list to a fixed size array of booleans where the indices contained in the linkedlist are true in the
@@ -214,11 +216,16 @@ func powerSet(n int, k int, indices *linkedlist.Node, out chan<- linkedlist.Node
 // internal function that creates a powerset but calls a callback at each node, including the leaves.  if the callback
 // returns true for "done", we stop
 func powerSetCallback(n int, k int, indices *linkedlist.Node, cb internalCallback, path *linkedlist.Node,
-	state interface{}) (bool, int) {
+	state interface{}, out chan<- interface{}) (bool, int) {
 
 	stop := false
 	stopNode := 0
+	isRoot := n == 0
 	isLeaf := n == k
+
+	if isRoot {
+		defer close(out)
+	}
 
 	stop, stopNode, state = cb(path, isLeaf, state)
 
@@ -233,7 +240,7 @@ func powerSetCallback(n int, k int, indices *linkedlist.Node, cb internalCallbac
 	}
 
 	path = path.Push(&PathNode{Index: n, Included: false})
-	stop, stopNode = powerSetCallback(n+1, k, indices, cb, path, state)
+	stop, stopNode = powerSetCallback(n+1, k, indices, cb, path, state, out)
 	path, _ = path.Pop()
 
 	// if our left branch told us to stop, let's figure out what we need to do
@@ -252,7 +259,7 @@ func powerSetCallback(n int, k int, indices *linkedlist.Node, cb internalCallbac
 	indices = indices.Push(n)
 
 	path = path.Push(&PathNode{Index: n, Included: true})
-	stop, stopNode = powerSetCallback(n+1, k, indices, cb, path, state)
+	stop, stopNode = powerSetCallback(n+1, k, indices, cb, path, state, out)
 
 	path, _ = path.Pop()
 	indices, _ = indices.Pop()
