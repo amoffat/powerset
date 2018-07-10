@@ -218,7 +218,6 @@ func powerSet(n int, k int, indices *list.List, out chan<- *list.List, wg *sync.
 func powerSetCallback(n int, k int, indices *list.List, cb internalCallback, path *list.List,
 	state interface{}, out chan<- interface{}) (bool, int) {
 
-	stop := false
 	stopNode := 0
 	isRoot := n == 0
 	isLeaf := n == k
@@ -227,6 +226,7 @@ func powerSetCallback(n int, k int, indices *list.List, cb internalCallback, pat
 		defer close(out)
 	}
 
+	var stop bool
 	stop, stopNode, state = cb(path, isLeaf, state)
 
 	// our callback says to stop, but where do we stop?
@@ -244,15 +244,10 @@ func powerSetCallback(n int, k int, indices *list.List, cb internalCallback, pat
 	path.Remove(leftPathPushed)
 
 	// if our left branch told us to stop, let's figure out what we need to do
-	if stop {
-		if n > stopNode {
-			// we're deeper in the tree than our stop node, which means we need to terminate going any deeper and
-			// propagate the stop
-			return stop, stopNode
-		}
-		// otherwise, we're at the stop node or earlier, which means we can discontinue stopping and continue as
-		// normal
-		stop = false
+	if stop && n > stopNode {
+		// we're deeper in the tree than our stop node, which means we need to terminate going any deeper and
+		// propagate the stop
+		return stop, stopNode
 	}
 
 	rightIndexPushed := indices.PushFront(n)
